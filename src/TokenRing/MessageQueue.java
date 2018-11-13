@@ -14,7 +14,7 @@ public class MessageQueue {
      * Não se esqueça que em uma fila, o primeiro elemente a entrar será o primeiro
      * a ser removido.
      */
-    ArrayList<String> queue = new ArrayList<>();
+    ArrayList<NetworkMessage> queue = new ArrayList<>();
 
     public MessageQueue(){
 
@@ -28,13 +28,15 @@ public class MessageQueue {
 
     }
 
-    public String RemoveMessage(){
-        String msg = "Bob:hello world"; /* Exemplo de mensagem armazenada na fila. */
+    public NetworkMessage PrepareToSend() throws InterruptedException{
+        return this.queue.get(0);
+    }
 
-        /* Retive uma mensagem do inicio da fila. Não se esqueça de garantir que apenas uma thread faça isso
-        por vez.  */
-
-        return msg;
+    public boolean containsMessage(){
+        if(queue.isEmpty())
+            return false;
+        else
+            return true;
     }
 
 

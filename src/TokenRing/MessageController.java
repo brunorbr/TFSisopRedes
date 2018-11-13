@@ -13,6 +13,7 @@ import java.util.logging.Logger;
 public class MessageController implements Runnable{
     private MessageQueue queue; /*Tabela de roteamento */
     private InetAddress IPAddress;
+    private String currentMessage;
     private int port;
     private Semaphore WaitForMessage;
     private String nickname;
@@ -42,6 +43,16 @@ public class MessageController implements Runnable{
 
     }
 
+    public void ReceiveMessage(String message){
+        String controller[] = message.split(";");
+        String messageCode = controller[0];
+
+        switch(messageCode){
+            case "4066":
+            case "4076":
+        }
+    }
+
     /** ReceiveMessage()
      *  Nesta função, vc deve decidir o que fazer com a mensagem recebida do vizinho da esquerda:
      *      Se for um token, é a sua chance de enviar uma mensagem de sua fila (queue);
@@ -50,12 +61,28 @@ public class MessageController implements Runnable{
      *       Se for um ACK e se for para você, sua mensagem foi enviada com sucesso, passe o token para o vizinho da direita, senão,
      * repasse o ACK para o seu vizinho da direita.
      */
-    public void ReceivedMessage(String msg){
-
-        System.out.println("TOKEN RECEIVED: " + msg);
-
+    public void ReceivedMessage(String currentMessage){
+        String messageCode = currentMessage.substring(0,3);
+        switch(messageCode){
+            case "4060":
+                System.out.println("Token was received by this station.");
+                this.token = true;
+                }
         /* Libera a thread para execução. */
         WaitForMessage.release();
+        }
+
+
+
+    public void SendMessage(Boolean hasToken){
+        if(hasToken && this.queue.containsMessage()){
+            NetworkMessage thisMessage = null;
+            try{
+                thisMessage = this.queue.PrepareToSend();
+            }catch(InterruptedException interruption){
+                Logger.getLogger(NetworkMessage.class.getName()).log(Level.WARNING, null, interruption);
+            }
+        }
     }
 
     @Override
