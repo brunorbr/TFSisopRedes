@@ -27,7 +27,6 @@ public class MessageReceiver implements Runnable{
         DatagramSocket serverSocket = null;
 
         try {
-
             /* Inicializa o servidor para aguardar datagramas na porta especificada */
             serverSocket = new DatagramSocket(port);
         } catch (SocketException ex) {

@@ -52,8 +52,7 @@ public class MessageController implements Runnable {
 
         nickname = n;
 
-        WaitForMessage = new Semaphore(0
-        +);
+        WaitForMessage = new Semaphore(0);
 
     }
 
