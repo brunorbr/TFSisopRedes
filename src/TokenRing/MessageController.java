@@ -1,5 +1,6 @@
 package TokenRing;
 
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -10,21 +11,33 @@ import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class MessageController implements Runnable{
+public class MessageController implements Runnable {
     private MessageQueue queue; /*Tabela de roteamento */
     private InetAddress IPAddress;
-    private String currentMessage;
     private int port;
     private Semaphore WaitForMessage;
     private String nickname;
     private int time_token;
-    private Boolean token;
+    private Boolean initialToken;
+    private int retryAttempts = 1;
 
-    public MessageController(   MessageQueue q,
-                                String ip_port,
-                                int t_token,
-                                Boolean t,
-                                String n) throws UnknownHostException{
+    private static final String TOKEN = "4060";
+    private static final String MESSAGE = "4066";
+    private static final String AKC = "4067";
+    private static final int MAX_ATTEMPTS = 3;
+
+    private String originMessage;
+    private String destNickname;
+    private String originNickname;
+
+    private Boolean messageReadyToSend = false;
+    private String message;
+
+    public MessageController(MessageQueue q,
+                             String ip_port,
+                             int t_token,
+                             Boolean t,
+                             String n) throws UnknownHostException {
 
         queue = q;
 
@@ -35,7 +48,7 @@ public class MessageController implements Runnable{
 
         time_token = t_token;
 
-        token = t;
+        initialToken = t;
 
         nickname = n;
 
@@ -43,46 +56,138 @@ public class MessageController implements Runnable{
 
     }
 
-    public void ReceiveMessage(String message){
-        String controller[] = message.split(";");
-        String messageCode = controller[0];
-
-        switch(messageCode){
-            case "4066":
-            case "4076":
-        }
-    }
-
-    /** ReceiveMessage()
-     *  Nesta função, vc deve decidir o que fazer com a mensagem recebida do vizinho da esquerda:
-     *      Se for um token, é a sua chance de enviar uma mensagem de sua fila (queue);
-     *      Se for uma mensagem de dados e se for para esta estação, apenas a exiba no console, senão,
+    /**
+     * ReceiveMessage()
+     * Nesta função, vc deve decidir o que fazer com a mensagem recebida do vizinho da esquerda:
+     * Se for um token, é a sua chance de enviar uma mensagem de sua fila (queue);
+     * Se for uma mensagem de dados e se for para esta estação, apenas a exiba no console, senão,
      * envie para seu vizinho da direita;
-     *       Se for um ACK e se for para você, sua mensagem foi enviada com sucesso, passe o token para o vizinho da direita, senão,
+     * Se for um ACK e se for para você, sua mensagem foi enviada com sucesso, passe o token para o vizinho da direita, senão,
      * repasse o ACK para o seu vizinho da direita.
      */
-    public void ReceivedMessage(String currentMessage){
-        String messageCode = currentMessage.substring(0,3);
-        switch(messageCode){
-            case "4060":
-                System.out.println("Token was received by this station.");
-                this.token = true;
-                }
+    public void ReceivedMessage(String rawMessage) {
+
+        System.out.println("Mensagem recebida: " + rawMessage);
+
+        if (this.isMessage(rawMessage) && this.isForMe()) {
+            System.out.println("É uma mensagem para mim");
+            System.out.println(this.originNickname + ": " + this.originMessage);
+            System.out.println("Preparando para enviar ACK");
+            this.prepareACK();
+        }else if(this.isMessage(rawMessage) && this.sameOrigin()){
+            if(this.retryAttempts == MAX_ATTEMPTS){
+                System.out.println("Limite de tentativas excedido.");
+                this.queue.RemoveMessage();
+                this.prepareToken();
+                retryAttempts = 1;
+            }else{
+                retryAttempts ++;
+                System.out.println("Mensagem retonou à origem.");
+                System.out.println("Reenviando mensagem.");
+                this.message = rawMessage;
+                this.messageReadyToSend = true;
+            }
+        } else if (this.isACK(rawMessage) && this.isForMe()) {
+            System.out.println("É um ACK para mim");
+            System.out.println("Preparando para liberar o Token");
+            this.prepareToken();
+        } else if (this.isToken(rawMessage)) {
+            System.out.println("É um Token");
+            System.out.println("Preparando para enviar uma mensagem, caso exista");
+            this.prepareMessage();
+        } else {
+            System.out.println("Esta mensagem não é endereçada a mim");
+            System.out.println("Repassando a mensagem");
+            this.message = rawMessage;
+            this.messageReadyToSend = true;
+        }
+
         /* Libera a thread para execução. */
         WaitForMessage.release();
+    }
+
+    private Boolean isMessage(String m) {
+        String[] messageSplited = m.split(";");
+
+        if (messageSplited.length != 2) {
+            return false;
+        }
+
+        if (!messageSplited[0].equals(MessageController.MESSAGE)) {
+            return false;
         }
 
 
+        String[] messageInfo = messageSplited[1].split(":");
 
-    public void SendMessage(Boolean hasToken){
-        if(hasToken && this.queue.containsMessage()){
-            NetworkMessage thisMessage = null;
-            try{
-                thisMessage = this.queue.PrepareToSend();
-            }catch(InterruptedException interruption){
-                Logger.getLogger(NetworkMessage.class.getName()).log(Level.WARNING, null, interruption);
-            }
+        if (messageInfo.length != 3) {
+            return false;
         }
+
+        this.originNickname = messageInfo[0];
+        this.destNickname = messageInfo[1];
+        this.originMessage = messageInfo[2];
+
+        return true;
+    }
+
+    private Boolean isACK(String m) {
+        String[] messageSplited = m.split(";");
+
+        if (messageSplited.length != 2) {
+            return false;
+        }
+
+        if (!messageSplited[0].equals(MessageController.AKC)) {
+            return false;
+        }
+
+        this.destNickname = messageSplited[1];
+
+        return true;
+    }
+
+    private Boolean isToken(String m) {
+        return m.equals(MessageController.TOKEN);
+    }
+
+    private Boolean isForMe() {
+        return this.destNickname.equals(this.nickname);
+    }
+
+    private Boolean sameOrigin(){
+        return this.originNickname.equals(this.nickname);
+    }
+
+    private void prepareMessage() {
+        if (this.queue.isEmpty()) {
+            System.out.println("Fila de mensagens vazia");
+            System.out.println("Preparando para liberar o Token");
+            this.prepareToken();
+        } else {
+            this.message = MessageController.MESSAGE + ";" +
+                    this.nickname + ":" + this.queue.RemoveMessage();
+        }
+        this.messageReadyToSend = true;
+    }
+
+    private void prepareACK() {
+        this.message = MessageController.AKC + ";" + this.originNickname;
+        this.messageReadyToSend = true;
+    }
+
+    private void prepareToken() {
+        this.message = new String();
+        this.message = MessageController.TOKEN;
+
+        this.messageReadyToSend = true;
+    }
+
+    public void cleanUpVariables() {
+        this.message = new String();
+        this.originMessage = new String();
+        this.destNickname = new String();
+        this.originNickname = new String();
     }
 
     @Override
@@ -98,41 +203,45 @@ public class MessageController implements Runnable{
             return;
         }
 
-        while(true){
-
             /* Neste exemplo, considera-se que a estação sempre recebe o token
                e o repassa para a próxima estação. */
 
-            try {
+        try {
                 /* Espera time_token segundos para o envio do token. Isso é apenas para depuração,
                    durante execução real faça time_token = 0,*/
-                Thread.sleep(time_token*1000);
-            } catch (InterruptedException ex) {
-                Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
+            Thread.sleep(time_token * 1000);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        if (this.initialToken || this.messageReadyToSend) {
+            if (this.initialToken) {
+                this.message = MessageController.TOKEN;
+                this.initialToken = false;
             }
 
-            if(token == true){
+            /* Converte string para array de bytes para envio pelo socket. */
+            sendData = this.message.getBytes();
 
-                /* Converte string para array de bytes para envio pelo socket. */
-                String msg = "4060"; /* Lembre-se do protocolo, "4060" é o token! */
-                sendData = msg.getBytes();
+            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port);
 
-                DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port);
-
-                /* Realiza envio da mensagem. */
-                try {
-                    clientSocket.send(sendPacket);
-                } catch (IOException ex) {
-                    Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
-            /* A estação fica aguardando a ação gerada pela função ReceivedMessage(). */
+            /* Realiza envio da mensagem. */
             try {
-                WaitForMessage.acquire();
-            } catch (InterruptedException ex) {
+                System.out.println("Enviando mensagem: " + this.message);
+                clientSocket.send(sendPacket);
+                System.out.println("Mensagem enviada");
+                this.messageReadyToSend = false;
+                this.cleanUpVariables();
+            } catch (IOException ex) {
                 Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
             }
+        }
+
+        /* A estação fica aguardando a ação gerada pela função ReceivedMessage(). */
+        try {
+            WaitForMessage.acquire();
+        } catch (InterruptedException ex) {
+            Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 }

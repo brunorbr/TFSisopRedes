@@ -1,5 +1,4 @@
 package TokenRing;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -8,9 +7,9 @@ import java.net.SocketException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-        /* Recebe mensagens do vizinho da esquerda e repassa para a classe MessageController.
-         * Provavelmente você não precisará modificar esta classe.
-         */
+/* Recebe mensagens do vizinho da esquerda e repassa para a classe MessageController.
+ * Provavelmente você não precisará modificar esta classe.
+ */
 
 public class MessageReceiver implements Runnable{
     private MessageQueue queue;
@@ -36,9 +35,10 @@ public class MessageReceiver implements Runnable{
             return;
         }
 
-        byte[] receiveData = new byte[1024];
+
 
         while(true){
+            byte[] receiveData = new byte[1024];
 
             /* Cria um DatagramPacket */
             DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
@@ -54,7 +54,9 @@ public class MessageReceiver implements Runnable{
             /* Converte o conteúdo do datagrama em string.
              * Lembre-se, isso apenas funciona porque sabemos que a mensagem recebida tem formato string.
              */
-            String msg = new String( receivePacket.getData());
+
+            //String msg = new String( receivePacket.getData());
+            String msg = getRidOfAnnoyingChar(receivePacket);
 
             /* Neste ponto você possui uma mensagem do seu vizinho da esquerda.
              * Passe a mensagem para a classe MessageController, ela deverá decidir
@@ -64,4 +66,17 @@ public class MessageReceiver implements Runnable{
         }
     }
 
+    public String getRidOfAnnoyingChar(DatagramPacket packet){
+        String result = new String(packet.getData());
+        char[] annoyingchar = new char[1];
+        char[] charresult = result.toCharArray();
+        result = "";
+        for(int i=0;i<charresult.length;i++){
+            if(charresult[i]==annoyingchar[0]){
+                break;
+            }
+            result+=charresult[i];
+        }
+        return result;
+    }
 }

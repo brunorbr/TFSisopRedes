@@ -4,7 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -15,10 +15,13 @@ public class TokenRing {
         int port;
         int t_token = 0;
         boolean token = false;
-        String nickname;
+        String nickname_origin;
+        String nickname_destination;
+        String message;
+        Scanner scan = new Scanner(System.in);
 
         /* Le arquivo de configuração. */
-        try ( BufferedReader inputFile = new BufferedReader(new FileReader("ring.cfg"))) {
+        try (BufferedReader inputFile = new BufferedReader(new FileReader("ring.cfg"))) {
 
             /* Lê IP e Porta */
             ip_port = inputFile.readLine();
@@ -26,7 +29,7 @@ public class TokenRing {
             port = Integer.parseInt(aux[1]);
 
             /* Lê apelido */
-            nickname = inputFile.readLine();
+            nickname_origin = inputFile.readLine();
 
             /* Lê tempo de espera com o token. Usado para fins de depuração. Em caso de
             execução normal use valor 0. */
@@ -43,7 +46,7 @@ public class TokenRing {
         /* Cria uma fila de mensagens. */
         MessageQueue queue = new MessageQueue();
 
-        MessageController controller = new MessageController(queue, ip_port, t_token, token, nickname);
+        MessageController controller = new MessageController(queue, ip_port, t_token, token, nickname_origin);
         Thread thr_controller = new Thread(controller);
         Thread thr_receiver = new Thread(new MessageReceiver(queue, port, controller));
 
@@ -56,6 +59,15 @@ public class TokenRing {
          *
          */
 
+        while (true) {
+            System.out.println("Nickname do Destino:");
+            nickname_destination = scan.nextLine();
+            System.out.println("Mensagem: ");
+            message = scan.nextLine();
+            queue.AddMessage(messageParser(nickname_destination, message));
+        }
     }
-
+    public static String messageParser(String destination, String message){
+        return destination + ":" + message;
+    }
 }
