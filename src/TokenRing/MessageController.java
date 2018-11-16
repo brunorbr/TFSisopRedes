@@ -52,19 +52,11 @@ public class MessageController implements Runnable {
 
         nickname = n;
 
-        WaitForMessage = new Semaphore(0);
+        WaitForMessage = new Semaphore(0
+        +);
 
     }
 
-    /**
-     * ReceiveMessage()
-     * Nesta função, vc deve decidir o que fazer com a mensagem recebida do vizinho da esquerda:
-     * Se for um token, é a sua chance de enviar uma mensagem de sua fila (queue);
-     * Se for uma mensagem de dados e se for para esta estação, apenas a exiba no console, senão,
-     * envie para seu vizinho da direita;
-     * Se for um ACK e se for para você, sua mensagem foi enviada com sucesso, passe o token para o vizinho da direita, senão,
-     * repasse o ACK para o seu vizinho da direita.
-     */
     public void ReceivedMessage(String rawMessage) {
 
         System.out.println("Mensagem recebida: " + rawMessage);
@@ -74,14 +66,14 @@ public class MessageController implements Runnable {
             System.out.println(this.originNickname + ": " + this.originMessage);
             System.out.println("Preparando para enviar ACK");
             this.prepareACK();
-        }else if(this.isMessage(rawMessage) && this.sameOrigin()){
-            if(this.retryAttempts == MAX_ATTEMPTS){
+        } else if (this.isMessage(rawMessage) && this.sameOrigin()) {
+            if (this.retryAttempts == MAX_ATTEMPTS) {
                 System.out.println("Limite de tentativas excedido.");
                 this.queue.RemoveMessage();
                 this.prepareToken();
                 retryAttempts = 1;
-            }else{
-                retryAttempts ++;
+            } else {
+                retryAttempts++;
                 System.out.println("Mensagem retonou à origem.");
                 System.out.println("Reenviando mensagem.");
                 this.message = rawMessage;
@@ -155,7 +147,7 @@ public class MessageController implements Runnable {
         return this.destNickname.equals(this.nickname);
     }
 
-    private Boolean sameOrigin(){
+    private Boolean sameOrigin() {
         return this.originNickname.equals(this.nickname);
     }
 
@@ -206,42 +198,44 @@ public class MessageController implements Runnable {
             /* Neste exemplo, considera-se que a estação sempre recebe o token
                e o repassa para a próxima estação. */
 
-        try {
+        while (true) {
+            try {
                 /* Espera time_token segundos para o envio do token. Isso é apenas para depuração,
                    durante execução real faça time_token = 0,*/
-            Thread.sleep(time_token * 1000);
-        } catch (InterruptedException ex) {
-            Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        if (this.initialToken || this.messageReadyToSend) {
-            if (this.initialToken) {
-                this.message = MessageController.TOKEN;
-                this.initialToken = false;
-            }
-
-            /* Converte string para array de bytes para envio pelo socket. */
-            sendData = this.message.getBytes();
-
-            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port);
-
-            /* Realiza envio da mensagem. */
-            try {
-                System.out.println("Enviando mensagem: " + this.message);
-                clientSocket.send(sendPacket);
-                System.out.println("Mensagem enviada");
-                this.messageReadyToSend = false;
-                this.cleanUpVariables();
-            } catch (IOException ex) {
+                Thread.sleep(time_token * 1000);
+            } catch (InterruptedException ex) {
                 Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
             }
-        }
 
-        /* A estação fica aguardando a ação gerada pela função ReceivedMessage(). */
-        try {
-            WaitForMessage.acquire();
-        } catch (InterruptedException ex) {
-            Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
+            if (this.initialToken || this.messageReadyToSend) {
+                if (this.initialToken) {
+                    this.message = MessageController.TOKEN;
+                    this.initialToken = false;
+                }
+
+                /* Converte string para array de bytes para envio pelo socket. */
+                sendData = this.message.getBytes();
+
+                DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port);
+
+                /* Realiza envio da mensagem. */
+                try {
+                    System.out.println("Enviando mensagem: " + this.message);
+                    clientSocket.send(sendPacket);
+                    System.out.println("Mensagem enviada");
+                    this.messageReadyToSend = false;
+                    this.cleanUpVariables();
+                } catch (IOException ex) {
+                    Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            /* A estação fica aguardando a ação gerada pela função ReceivedMessage(). */
+            try {
+                WaitForMessage.acquire();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
     }
 }
