@@ -7,11 +7,6 @@ import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/* Esta classe deve implementar uma fila de mensagens. Observe que esta fila será
- * acessada por um consumidor (MessageSender) e um produtor (Classe principal, TokenRing).
- * Portanto, implemente controle de acesso (sincronização), para acesso a fila.
- */
-
 public class MessageQueue {
     Deque<String> deque;
     static Semaphore lock = new Semaphore(1);
@@ -25,14 +20,7 @@ public class MessageQueue {
         return this.deque.isEmpty();
     }
 
-    /*Implemente uma estrutura de dados para manter uma lista de mensagens em formato string.
-     * Você pode, por exemplo, usar um ArrayList().
-     * Não se esqueça que em uma fila, o primeiro elemente a entrar será o primeiro
-     * a ser removido.
-     */
     public void AddMessage(String message){
-        /* Adicione a mensagem no final da fila. Não se esqueça de garantir que apenas uma thread faça isso
-        por vez. */
         try {
             lock.acquire();
             deque.addLast(message);
@@ -44,8 +32,6 @@ public class MessageQueue {
     }
 
     public String RemoveMessage(){
-        /* Retive uma mensagem do inicio da fila. Não se esqueça de garantir que apenas uma thread faça isso
-        por vez.  */
         String message = new String();
 
         try {

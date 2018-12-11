@@ -12,7 +12,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class MessageController implements Runnable {
-    private MessageQueue queue; /*Tabela de roteamento */
+    private MessageQueue queue;
     private InetAddress IPAddress;
     private int port;
     private Semaphore WaitForMessage;
@@ -40,20 +40,13 @@ public class MessageController implements Runnable {
                              String n) throws UnknownHostException {
 
         queue = q;
-
         String aux[] = ip_port.split(":");
-
         IPAddress = InetAddress.getByName(aux[0]);
         port = Integer.parseInt(aux[1]);
-
         time_token = t_token;
-
         initialToken = t;
-
         nickname = n;
-
         WaitForMessage = new Semaphore(0);
-
     }
 
     public void ReceivedMessage(String rawMessage) {
@@ -68,7 +61,6 @@ public class MessageController implements Runnable {
         } else if (this.isMessage(rawMessage) && this.sameOrigin()) {
             if (this.retryAttempts == MAX_ATTEMPTS) {
                 System.out.println("Limite de tentativas excedido.");
-                this.queue.RemoveMessage();
                 this.prepareToken();
                 retryAttempts = 1;
             } else {
@@ -93,7 +85,6 @@ public class MessageController implements Runnable {
             this.messageReadyToSend = true;
         }
 
-        /* Libera a thread para execução. */
         WaitForMessage.release();
     }
 
@@ -186,7 +177,6 @@ public class MessageController implements Runnable {
         DatagramSocket clientSocket = null;
         byte[] sendData;
 
-        /* Cria socket para envio de mensagem */
         try {
             clientSocket = new DatagramSocket();
         } catch (SocketException ex) {
@@ -194,13 +184,8 @@ public class MessageController implements Runnable {
             return;
         }
 
-            /* Neste exemplo, considera-se que a estação sempre recebe o token
-               e o repassa para a próxima estação. */
-
         while (true) {
             try {
-                /* Espera time_token segundos para o envio do token. Isso é apenas para depuração,
-                   durante execução real faça time_token = 0,*/
                 Thread.sleep(time_token * 1000);
             } catch (InterruptedException ex) {
                 Logger.getLogger(MessageController.class.getName()).log(Level.SEVERE, null, ex);
@@ -211,13 +196,10 @@ public class MessageController implements Runnable {
                     this.message = MessageController.TOKEN;
                     this.initialToken = false;
                 }
-
-                /* Converte string para array de bytes para envio pelo socket. */
                 sendData = this.message.getBytes();
 
                 DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port);
 
-                /* Realiza envio da mensagem. */
                 try {
                     System.out.println("Enviando mensagem: " + this.message);
                     clientSocket.send(sendPacket);
@@ -229,7 +211,6 @@ public class MessageController implements Runnable {
                 }
             }
 
-            /* A estação fica aguardando a ação gerada pela função ReceivedMessage(). */
             try {
                 WaitForMessage.acquire();
             } catch (InterruptedException ex) {
